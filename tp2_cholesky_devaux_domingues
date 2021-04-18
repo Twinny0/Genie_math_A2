@@ -1,0 +1,216 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Apr  2 15:29:14 2021
+
+@author: theod
+"""
+
+import numpy as np
+import math
+import time
+import matplotlib.pyplot as plt
+
+
+def vsdp(A):
+    if np.array_equal(A, A.T):
+        try:
+            np.linalg.cholesky(A)
+            return True
+        except np.linalg.LinAlgError:
+            return False
+    else:
+        return False
+    
+def matrice_def_pos(t):
+    mat = np.random.randint(-t, t, size =(t,t))
+    transpose_mat = mat.T
+    matrice_def_pos = transpose_mat.dot(mat)
+    print(vsdp(matrice_def_pos))
+    return matrice_def_pos
+
+def matrice_b(t):
+    mat = np.random.randint(t, size = (t, 1))
+    return mat
+
+
+def ResolutionSystTriInf(Taug):
+    n, m = np.shape(Taug)
+    x = np.zeros(n)
+    x[0] = Taug[0, m - 1] / Taug[0, 0]
+    for i in range(1, n):
+        x[i] = Taug[i, n]
+        for j in range (0, i):
+            x[i] = x[i] - Taug[i, j] * x[j]
+        x[i] = x[i] / Taug[i, i]
+    new_x = x.reshape(-1, 1)
+    return new_x
+
+
+def ResolutionSystTriSup(Taug):
+    n, m = np.shape(Taug)
+    x = np.zeros(n)
+    for i in range(n - 1, -1, -1):
+        somme = 0
+        for j in range(i, n):
+            somme = somme + Taug[i, j] * x[j]
+            x[i] = (Taug[i, n] - somme) / Taug[i, i]
+    return x
+
+def DecompostionLU(A):
+    n, m = np.shape(A)
+    L = np.identity(n)
+    for i in range(0, n - 1):
+        for j in range(i + 1, n):
+            g = A[j, i] / A[i, i]
+            L[j, i] = g
+            A[j, :] = A[j, :] - g * A[i, :]
+    return [A, L]
+
+def ResolutionLU(L, U, B):
+    Laug = np.concatenate((L, B), axis = 1)
+    Y = ResolutionSystTriInf(Laug)
+    Uaug = np.concatenate((U, Y), axis = 1)
+    mat = ResolutionSystTriSup(Uaug)
+    result = mat.reshape(-1, 1)
+    return result
+  
+def Cholesky(A):
+    n, m = np.shape(A)
+    L = np.zeros((n, n))
+        
+    for k in range (n):
+        for i in range(k, n):
+            somme = 0
+            for j in range(0, k):
+                somme += L[i][j] * L[k][j]
+            L[i][k] = A[i][k] - somme
+            if i == k:
+                L[k][k] = math.sqrt(L[k][k])
+            else:
+                L[i][k] = L[i][k] / L[k][k]
+    
+    L_transpose = L.T
+    return L, L_transpose
+
+
+def resolution_cholesky(A, B):
+    L, L_transpose = Cholesky(A)
+    Laug = np.concatenate((L, B), axis = 1)
+    Y = ResolutionSystTriInf(Laug)
+    Uaug = np.concatenate((L_transpose, Y), axis = 1)
+    mat = ResolutionSystTriSup(Uaug)
+    result = mat.reshape(-1, 1)
+    return result
+
+def resolution_cholesky_numpy(A, B):
+    L = np.linalg.cholesky(A)
+    Laug = np.concatenate((L, B), axis = 1)
+    Y = ResolutionSystTriInf(Laug)
+    Uaug = np.concatenate((L.T, Y), axis = 1)
+    mat = ResolutionSystTriSup(Uaug)
+    result = mat.reshape(-1, 1)
+    return result
+
+def LU(A, B):
+    LowerUpper = DecompostionLU(A)
+    resultat = ResolutionLU(LowerUpper[1], LowerUpper[0], B)
+    return resultat
+
+
+def courbe_chol():
+    t = 1
+    taille = []
+    temps = []
+    temps_chol = []
+    temps_LU = []
+    erreur = []
+    erreur_chol = []
+    erreur_LU = []
+    
+    while t <= 1001:
+    
+        
+        ####Cholesky
+        
+        mat_a = matrice_def_pos(t)
+        mat_b = matrice_b(t)
+        
+        debut = time.process_time()
+        X = resolution_cholesky(mat_a, mat_b)
+        fin = time.process_time()
+        
+        delta = (fin - debut)
+        temps.append(delta)
+        taille.append(t)
+        
+        AX = np.dot(mat_a, X)
+        test_erreur = AX - mat_b
+        norme_chol = np.linalg.norm(test_erreur)
+        erreur.append(norme_chol)
+        
+        ###Linalg
+        
+        debut_chol = time.time()
+        X = resolution_cholesky_numpy(mat_a, mat_b)
+        fin_chol = time.time()
+        
+        delta_chol = fin_chol - debut_chol
+        temps_chol.append(delta_chol)
+        
+        AX = np.dot(mat_a, X)
+        test_erreur = AX - mat_b
+        norme_linalg = np.linalg.norm(test_erreur)
+        erreur_chol.append(norme_linalg)
+        
+        ###LU
+        
+        debut_LU = time.process_time()
+        X = LU(mat_a, mat_b)
+        fin_LU = time.process_time()
+        
+        delta_LU = (fin_LU - debut_LU)
+        temps_LU.append(delta_LU)
+        
+        AX = np.dot(mat_a, X)
+        test_erreur = AX - mat_b
+        norme_LU = np.linalg.norm(test_erreur)
+        erreur_LU.append(norme_LU)
+        
+        
+        
+        print("Taille de la matrice:", t)
+        print("Durée:", delta) 
+        
+        t += 50
+    
+    plt.plot(np.array(taille), np.array(temps), label = "Cholesky")
+    plt.plot(np.array(taille), np.array(temps_chol), label = "linalg.cholesky")
+    plt.plot(np.array(taille), np.array(temps_LU), label = "LU")
+    plt.xlabel("Dimension de la matrice (n)")
+    plt.ylabel("Temps (s)")
+    plt.title("Evolution du temps de calcul en fonction de la dimension de la matrice")
+    plt.legend()
+
+    plt.show()
+
+    plt.plot(np.array(taille), np.array(erreur), label = "Cholesky")
+    plt.plot(np.array(taille), np.array(erreur_chol), label = "linalg.cholesky")
+    plt.plot(np.array(taille), np.array(erreur_LU), label = "LU")
+    plt.xlabel("Dimension de la matrice (n)")
+    plt.ylabel("Erreur")
+    plt.title("Evolution de l'erreur en fonction de la dimension de la matrice ")
+    plt.legend()
+
+    plt.show()
+
+    
+################DATA######################
+
+a = np.array([[4, -2, -4], [-2, 10, 5], [-4, 5, 6]])
+b = np.array([[6], [-9], [-7]])
+
+courbe_chol()
+
+
+
+    
